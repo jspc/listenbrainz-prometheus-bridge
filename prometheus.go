@@ -18,6 +18,11 @@ var (
 		Name: "track_plays",
 		Help: "Number of plays for a specific tracks",
 	}, []string{"track", "artist", "album"})
+
+	geoGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "country_artists",
+		Help: "Artists segregated by country",
+	}, []string{"country", "lat", "long"})
 )
 
 func Prometheus() {
@@ -27,6 +32,11 @@ func Prometheus() {
 	}
 
 	err = prometheus.DefaultRegisterer.Register(tracksGauge)
+	if err != nil {
+		panic(err)
+	}
+
+	err = prometheus.DefaultRegisterer.Register(geoGauge)
 	if err != nil {
 		panic(err)
 	}

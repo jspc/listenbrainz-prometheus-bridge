@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 )
 
@@ -27,10 +28,22 @@ func (t trackCount) Key() string {
 	return fmt.Sprintf("%s%s%s", t.Artist, t.Album, t.Name)
 }
 
+type artistCountryCount struct {
+	Country string `json:"country"`
+	Count   int64  `json:"artist_count"`
+
+	lat, long string
+}
+
+func (c artistCountryCount) Key() string {
+	return c.Country
+}
+
 type response struct {
 	Payload struct {
-		Artists []artistCount `json:"artists"`
-		Tracks  []trackCount  `json:"recordings"`
+		Artists   []*artistCount        `json:"artists"`
+		Tracks    []*trackCount         `json:"recordings"`
+		ArtistMap []*artistCountryCount `json:"artist_map"`
 	} `json:"payload"`
 }
 
@@ -50,7 +63,7 @@ func NewClient(token string) (c Client, err error) {
 	return
 }
 
-func (c Client) UserArtists(username string) (artists []artistCount, err error) {
+func (c Client) UserArtists(username string) (artists []*artistCount, err error) {
 	r, err := c.do(username, "artists")
 	if err != nil {
 		return
@@ -59,13 +72,34 @@ func (c Client) UserArtists(username string) (artists []artistCount, err error) 
 	return r.Payload.Artists, nil
 }
 
-func (c Client) UserTracks(username string) (tracks []trackCount, err error) {
+func (c Client) UserTracks(username string) (tracks []*trackCount, err error) {
 	r, err := c.do(username, "recordings")
 	if err != nil {
 		return
 	}
 
 	return r.Payload.Tracks, nil
+}
+
+func (c Client) UserArtistMap(username string) (ams []*artistCountryCount, err error) {
+	r, err := c.do(username, "artist-map")
+	if err != nil {
+		return
+	}
+
+	for i, acc := range r.Payload.ArtistMap {
+		log.Printf("%#v", acc)
+
+		capital, ok := countries[acc.Country]
+		if !ok {
+			continue
+		}
+
+		r.Payload.ArtistMap[i].lat = capital.lat
+		r.Payload.ArtistMap[i].long = capital.long
+	}
+
+	return r.Payload.ArtistMap, nil
 }
 
 func (c Client) do(username, model string) (payload *response, err error) {

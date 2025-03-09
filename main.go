@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -35,8 +36,11 @@ func main() {
 }
 
 func doMetrics(c Client) (err error) {
-	artists := make(map[string]artistCount, 0)
-	tracks := make(map[string]trackCount, 0)
+	log.Print("Loading metrics")
+
+	artists := make(map[string]artistCount)
+	tracks := make(map[string]trackCount)
+	countryArtists := make(map[string]artistCountryCount)
 
 	for _, user := range users {
 		artistCounts, err := c.UserArtists(user)
@@ -74,17 +78,37 @@ func doMetrics(c Client) (err error) {
 			t.Count += tc.Count
 			tracks[tc.Key()] = t
 		}
+
+		countryCounts, err := c.UserArtistMap(user)
+		if err != nil {
+			return err
+		}
+
+		for _, acc := range countryCounts {
+			if _, ok := countryArtists[acc.Key()]; !ok {
+				countryArtists[acc.Key()] = artistCountryCount{
+					Country: acc.Country,
+					lat:     acc.lat,
+					long:    acc.long,
+				}
+			}
+
+			ca := countryArtists[acc.Key()]
+			ca.Count += acc.Count
+			countryArtists[acc.Key()] = ca
+		}
 	}
 
 	for _, a := range artists {
-		if a.Name == "" {
-			continue
-		}
 		artistsGauge.With(prometheus.Labels{"artist": a.Name}).Set(float64(a.Count))
 	}
 
 	for _, t := range tracks {
 		tracksGauge.With(prometheus.Labels{"artist": t.Artist, "track": t.Name, "album": t.Album}).Set(float64(t.Count))
+	}
+
+	for _, c := range countryArtists {
+		geoGauge.With(prometheus.Labels{"country": c.Country, "lat": c.lat, "long": c.long}).Set(float64(c.Count))
 	}
 
 	return
