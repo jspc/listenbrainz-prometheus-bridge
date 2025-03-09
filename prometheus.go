@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -32,5 +33,10 @@ func Prometheus() {
 
 	http.Handle("/metrics", promhttp.Handler())
 
-	http.ListenAndServe(":2112", nil)
+	server := &http.Server{
+		Addr:              ":2112",
+		ReadHeaderTimeout: time.Second,
+	}
+
+	panic(server.ListenAndServe())
 }
